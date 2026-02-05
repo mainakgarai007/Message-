@@ -285,10 +285,7 @@ class AutomationService {
    * Returns the first user with role === 'admin'
    */
   async getAdminUid() {
-    // This should be cached or configured
-    // For now, we'll do a simple query
-    const users = await User.search(''); // Get some users
-    const admin = users.find(u => u.role === 'admin');
+    const admin = await User.findByRole('admin');
     return admin ? admin.id : null;
   }
 }

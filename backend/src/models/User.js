@@ -93,6 +93,9 @@ class User {
 
   /**
    * Find user by role
+   * Note: Returns only the first user with the specified role.
+   * If multiple users with the same role exist, only one will be returned.
+   * Use this for roles where only one user is expected (e.g., 'admin').
    * @param {string} role - Role to search for (e.g., 'admin', 'user')
    * @returns {object|null} - First user with the role, or null
    */
