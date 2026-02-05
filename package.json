@@ -22,7 +22,7 @@
     "dotenv": "^16.0.3",
     "cors": "^2.8.5",
     "socket.io": "^4.6.1",
-    "nodemailer": "^6.9.1",
+    "nodemailer": "^7.0.7",
     "validator": "^13.9.0",
     "express-rate-limit": "^6.7.0",
     "helmet": "^7.0.0",
