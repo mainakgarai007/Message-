@@ -251,8 +251,12 @@ Edit `/backend/src/services/automationService.js`:
 - Modify emotional keyword detection
 - Change language mirroring logic
 
-## 🔐 Security Features
+## 🔐 Security
 
+### Recent Security Updates
+- **2024-02**: Updated nodemailer to v7.0.7 to patch email domain vulnerability (CVE)
+
+### Security Features
 - Password hashing with bcrypt (10 salt rounds)
 - JWT token authentication
 - Email verification required
