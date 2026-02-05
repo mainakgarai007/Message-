@@ -1,0 +1,101 @@
+.settings {
+  padding: 30px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.settings h2 {
+  color: #333;
+  margin-bottom: 30px;
+}
+
+.settings-section {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 25px;
+  margin-bottom: 20px;
+}
+
+.settings-section h3 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+}
+
+.settings-item {
+  margin-bottom: 15px;
+}
+
+.settings-item strong {
+  display: inline-block;
+  min-width: 120px;
+  color: #555;
+}
+
+.settings-note {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 10px;
+  font-style: italic;
+}
+
+.edit-profile-form {
+  margin-top: 20px;
+}
+
+.about-me-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.about-me-form .form-group {
+  flex: 1;
+  min-width: 150px;
+  margin-bottom: 0;
+}
+
+.about-me-form button {
+  align-self: flex-end;
+}
+
+.about-me-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.about-me-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 5px;
+}
+
+.about-me-content {
+  flex: 1;
+}
+
+.about-me-category {
+  font-size: 0.85rem;
+  color: #666;
+  margin-left: 10px;
+}
+
+.btn-danger-sm {
+  padding: 5px 10px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-danger-sm:hover {
+  background-color: #c82333;
+}

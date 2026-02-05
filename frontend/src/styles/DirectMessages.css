@@ -1,0 +1,153 @@
+.direct-messages {
+  display: flex;
+  height: 100%;
+}
+
+.dm-sidebar {
+  width: 300px;
+  border-right: 1px solid #ddd;
+  background-color: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+}
+
+.dm-sidebar-header {
+  padding: 15px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: white;
+}
+
+.dm-sidebar-header h3 {
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.new-dm-form {
+  padding: 15px;
+  background-color: white;
+  border-bottom: 1px solid #ddd;
+}
+
+.new-dm-form input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+.dm-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.dm-item {
+  padding: 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dm-item:hover {
+  background-color: #e9ecef;
+}
+
+.dm-item.active {
+  background-color: #e7f3ff;
+}
+
+.dm-item-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #007bff;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  position: relative;
+}
+
+.status-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+.status-dot.online {
+  background-color: #28a745;
+}
+
+.dm-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dm-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.dm-item-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.favorite-icon {
+  font-size: 0.8rem;
+}
+
+.dm-item-email {
+  font-size: 0.85rem;
+  color: #666;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-icon-small {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 5px;
+  color: #999;
+}
+
+.btn-icon-small:hover {
+  color: #007bff;
+}
+
+.dm-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.privacy-notice {
+  padding: 15px;
+  background-color: #fff3cd;
+  border-bottom: 1px solid #ffc107;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.privacy-notice p {
+  margin: 0;
+  color: #856404;
+}
