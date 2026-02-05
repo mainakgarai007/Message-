@@ -3,12 +3,12 @@ import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB21rcKciVt49oeghifSnNuZKfHW02OYl4",
-  authDomain: "message-5beb7.firebaseapp.com",
-  projectId: "message-5beb7",
-  storageBucket: "message-5beb7.firebasestorage.app",
-  messagingSenderId: "134586933560",
-  appId: "1:134586933560:web:d8d760fa9e309d461ae1cd"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyB21rcKciVt49oeghifSnNuZKfHW02OYl4",
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "message-5beb7.firebaseapp.com",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "message-5beb7",
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "message-5beb7.firebasestorage.app",
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "134586933560",
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:134586933560:web:d8d760fa9e309d461ae1cd"
 };
 
 // Initialize Firebase

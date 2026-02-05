@@ -83,6 +83,8 @@ class AutomationService {
   /**
    * Get fallback reply when information is not in AboutMe
    * Bot must NEVER guess personal facts
+   * @param {string} language - Detected language
+   * @returns {string} Fallback response message
    */
   getFallbackReply(language) {
     const fallbacks = {

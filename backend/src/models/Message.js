@@ -169,6 +169,13 @@ class Message {
 
   /**
    * Search messages in a chat
+   * Note: This implementation is limited to 100 recent messages.
+   * For production, consider using a dedicated full-text search solution
+   * like Algolia, Elasticsearch, or Firebase Extensions.
+   * @param {string} chatType - 'dm' or 'group'
+   * @param {string} chatId - Chat ID
+   * @param {string} query - Search query
+   * @returns {Promise<Array>} Matching messages (max 100)
    */
   static async search(chatType, chatId, query) {
     const collection = chatType === 'dm' ? 'dms' : 'groups';
