@@ -75,24 +75,24 @@ A clean, privacy-focused messaging platform with automation that feels completel
 
 ### Backend
 - Node.js + Express
-- MongoDB + Mongoose
+- **Firebase/Firestore** (database)
+- **Firebase Authentication** (UID-based auth)
 - Socket.io (real-time)
-- JWT authentication
 - Nodemailer (email verification)
-- Bcrypt (password hashing)
 
 ### Frontend
 - React 18
 - React Router v6
 - Socket.io-client
 - Axios
+- Firebase Client SDK
 - Emoji Picker React
 
 ## 📦 Installation
 
 ### Prerequisites
 - Node.js (v14+)
-- MongoDB (v4+)
+- Firebase project (https://console.firebase.google.com/)
 - npm or yarn
 
 ### Setup Steps
@@ -115,29 +115,46 @@ npm install
 cd ..
 ```
 
-4. **Configure environment variables**
-```bash
-cp .env.example .env
-```
+4. **Configure Firebase**
 
-Edit `.env` with your configuration:
+Create a Firebase project at https://console.firebase.google.com/ and enable:
+- Authentication (Email/Password)
+- Firestore Database
+
+Copy `.env.example` to `.env` and configure:
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/message-platform
-JWT_SECRET=your_jwt_secret_key_here
-JWT_EXPIRE=30d
+
+# Firebase Configuration
+FIREBASE_API_KEY=your_api_key
+FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+FIREBASE_APP_ID=your_app_id
+
+# Firebase Admin SDK (for production)
+# FIREBASE_SERVICE_ACCOUNT_PATH=/path/to/serviceAccountKey.json
+
+# Email Configuration
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_email_password
 EMAIL_FROM=noreply@messageplatform.com
+
 CLIENT_URL=http://localhost:3000
 NODE_ENV=development
 ```
 
-5. **Start MongoDB**
+Update `frontend/src/config/firebase.js` with your Firebase credentials.
+
+5. **Deploy Firestore Security Rules**
 ```bash
-mongod
+npm install -g firebase-tools
+firebase login
+firebase init firestore
+firebase deploy --only firestore:rules
 ```
 
 6. **Run the application**
@@ -164,7 +181,7 @@ npm run client
 
 ### First Time Setup
 1. Register with email
-2. Verify email via link sent
+2. Verify email via Firebase Auth
 3. Login with credentials
 
 ### Creating Conversations
@@ -172,18 +189,34 @@ npm run client
 - **Group**: Click + in Groups tab, enter name and member emails
 
 ### Admin Features
-- Set user as admin in database: `db.users.updateOne({email: "admin@example.com"}, {$set: {isAdmin: true}})`
+- Set user as admin in Firestore: Update `users/{uid}` document with `role: "admin"`
 - Access "About Me" knowledge store in Settings
 - Toggle Ghost Mode in Settings
 - Change bot modes per DM/Group
 
 ### Bot Modes
 Each DM and Group has independent bot mode:
-- **ON** - Automation always replies
-- **MANUAL** - Only manual replies (no automation)
-- **AUTO** - Smart mode (automation silent when admin active)
+- **on** - Automation always replies
+- **manual** - Only manual replies (no automation)
+- **auto** - Smart mode (automation silent when admin active)
 
-Admin can change bot mode in DM/Group settings (UI to be enhanced).
+Admin can change bot mode in DM/Group settings.
+
+## 🔒 Security & Architecture
+
+### UID-Based Authentication
+- User document ID = Firebase Auth UID
+- All operations use UID for access control
+- Admin determined by `users/{uid}.role === "admin"`
+
+### Firestore Security Rules
+- All access is UID-based
+- Admin permissions enforced through Firestore rules
+- aboutMe is admin-only
+- DMs and Groups are members-only
+- Default deny rule for all other paths
+
+See `firestore.rules` for complete security rules and `FIREBASE_MIGRATION.md` for detailed documentation.
 
 ## 🏗️ Project Structure
 
@@ -192,16 +225,18 @@ Message-/
 ├── backend/
 │   ├── server.js                 # Main server with Socket.io
 │   └── src/
+│       ├── config/              # Firebase configuration
 │       ├── controllers/          # Route controllers
-│       ├── models/              # Mongoose models
+│       ├── models/              # Firestore models
 │       ├── routes/              # Express routes
 │       ├── middleware/          # Auth & other middleware
 │       ├── services/            # Automation service
-│       └── utils/               # Utilities (email, JWT, language)
+│       └── utils/               # Utilities (email, language)
 ├── frontend/
 │   ├── public/
 │   │   └── index.html
 │   └── src/
+│       ├── config/               # Firebase configuration
 │       ├── components/          # React components
 │       ├── pages/               # Page components
 │       ├── contexts/            # React contexts (Auth, Socket)
@@ -209,6 +244,10 @@ Message-/
 │       ├── styles/              # CSS files
 │       ├── App.js
 │       └── index.js
+├── firebase.json                # Firebase configuration
+├── firestore.rules             # Firestore security rules
+├── firestore.indexes.json      # Firestore indexes
+├── FIREBASE_MIGRATION.md       # Migration guide
 ├── package.json
 └── README.md
 ```
