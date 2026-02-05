@@ -1,33 +1,50 @@
 const AboutMe = require('../models/AboutMe');
+const User = require('../models/User');
 const { detectLanguage, detectEmotion } = require('../utils/language');
+
+/**
+ * Automation Service - Updated for Firebase/Firestore
+ * Bot mode system: "on" | "manual" | "auto" (per DM/Group)
+ * AboutMe data is admin-only and UID-based
+ * No presence-based logic
+ */
 
 class AutomationService {
   constructor() {
-    this.aboutMeCache = null;
-    this.lastCacheUpdate = null;
+    this.aboutMeCache = {};
+    this.lastCacheUpdate = {};
   }
 
-  async loadAboutMe() {
-    if (!this.aboutMeCache || Date.now() - this.lastCacheUpdate > 60000) {
-      const data = await AboutMe.find({});
-      this.aboutMeCache = data.reduce((acc, item) => {
-        acc[item.key.toLowerCase()] = item.value;
-        return acc;
-      }, {});
-      this.lastCacheUpdate = Date.now();
+  /**
+   * Load AboutMe data for a specific admin
+   * @param {string} adminUid - Admin's UID
+   */
+  async loadAboutMe(adminUid) {
+    if (!this.aboutMeCache[adminUid] || Date.now() - this.lastCacheUpdate[adminUid] > 60000) {
+      const factsMap = await AboutMe.getFactsMap(adminUid);
+      this.aboutMeCache[adminUid] = factsMap;
+      this.lastCacheUpdate[adminUid] = Date.now();
     }
-    return this.aboutMeCache;
+    return this.aboutMeCache[adminUid];
   }
 
+  /**
+   * Determine if bot should auto-reply
+   * @param {string} chatId - Chat ID
+   * @param {string} chatType - 'dm' or 'group'
+   * @param {string} botMode - 'on' | 'manual' | 'auto'
+   * @param {boolean} isAdminActive - Whether admin is currently active
+   * @returns {boolean}
+   */
   async shouldAutoReply(chatId, chatType, botMode, isAdminActive) {
     // MANUAL mode - never auto reply
-    if (botMode === 'MANUAL') return false;
+    if (botMode === 'manual') return false;
 
-    // ON mode - always auto reply (unless admin active in AUTO mode)
-    if (botMode === 'ON') return true;
+    // ON mode - always auto reply
+    if (botMode === 'on') return true;
 
-    // AUTO mode - smart decision
-    if (botMode === 'AUTO') {
+    // AUTO mode - smart decision based on admin activity
+    if (botMode === 'auto') {
       // If admin is active, don't auto reply
       if (isAdminActive) return false;
       
@@ -38,9 +55,18 @@ class AutomationService {
     return false;
   }
 
-  async generateReply(message, relationshipType, language) {
+  /**
+   * Generate automated reply
+   * @param {string} message - User's message
+   * @param {string} relationshipType - Relationship type
+   * @param {string} language - Detected language
+   * @param {string} adminUid - Admin's UID for AboutMe lookup
+   */
+  async generateReply(message, relationshipType, language, adminUid) {
     const emotion = detectEmotion(message);
-    const aboutMe = await this.loadAboutMe();
+    
+    // Get admin's AboutMe data
+    const aboutMe = await this.loadAboutMe(adminUid);
 
     // Check if message asks about something in AboutMe
     const lowerMessage = message.toLowerCase();
@@ -50,8 +76,26 @@ class AutomationService {
       }
     }
 
-    // Generate contextual reply based on relationship and emotion
-    return this.generateContextualReply(message, relationshipType, emotion, language);
+    // If no match in AboutMe, return fallback
+    return this.getFallbackReply(language);
+  }
+
+  /**
+   * Get fallback reply when information is not in AboutMe
+   * Bot must NEVER guess personal facts
+   * @param {string} language - Detected language
+   * @returns {string} Fallback response message
+   */
+  getFallbackReply(language) {
+    const fallbacks = {
+      english: "I'm not sure about that yet.",
+      hindi: "मुझे इसके बारे में अभी तक पता नहीं है।",
+      bengali: "আমি এখনও এটি সম্পর্কে নিশ্চিত নই।",
+      hinglish: "Mujhe iske bare mein abhi tak pata nahi hai.",
+      benglish: "Ami ekhono eta somporke nischit noi."
+    };
+    
+    return fallbacks[language] || fallbacks.english;
   }
 
   generateContextualReply(message, relationshipType, emotion, language) {
@@ -236,6 +280,15 @@ class AutomationService {
     }
     
     return polite.charAt(0).toUpperCase() + polite.slice(1);
+  }
+
+  /**
+   * Get admin UID (helper function)
+   * Returns the first user with role === 'admin'
+   */
+  async getAdminUid() {
+    const admin = await User.findByRole('admin');
+    return admin ? admin.id : null;
   }
 }
 
