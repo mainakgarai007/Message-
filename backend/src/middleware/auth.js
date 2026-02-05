@@ -1,5 +1,11 @@
-const jwt = require('jsonwebtoken');
+const { auth } = require('../config/firebase');
 const User = require('../models/User');
+
+/**
+ * Auth Middleware - Firebase Auth Integration
+ * Verifies Firebase ID tokens
+ * Admin check: users/{uid}.role === "admin"
+ */
 
 exports.protect = async (req, res, next) => {
   let token;
@@ -13,25 +19,41 @@ exports.protect = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id);
+    // Verify Firebase ID token
+    const decodedToken = await auth.verifyIdToken(token);
     
-    if (!req.user) {
+    // Get user from Firestore
+    const user = await User.findById(decodedToken.uid);
+    
+    if (!user) {
       return res.status(401).json({ success: false, message: 'User not found' });
     }
 
-    if (!req.user.isVerified) {
+    if (!user.isVerified) {
       return res.status(401).json({ success: false, message: 'Email not verified' });
     }
 
+    // Attach user info to request
+    req.user = {
+      uid: decodedToken.uid,
+      email: user.email,
+      role: user.role,
+      isAdmin: user.role === 'admin'
+    };
+
     next();
   } catch (error) {
+    console.error('Auth middleware error:', error);
     return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
   }
 };
 
+/**
+ * Admin-only middleware
+ * Checks if user.role === "admin"
+ */
 exports.adminOnly = async (req, res, next) => {
-  if (!req.user.isAdmin) {
+  if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
   }
   next();

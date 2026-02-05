@@ -11,25 +11,31 @@
     "install-all": "npm install && cd frontend && npm install",
     "build": "cd frontend && npm run build"
   },
-  "keywords": ["messaging", "chat", "groups"],
+  "keywords": [
+    "messaging",
+    "chat",
+    "groups"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^7.0.3",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.0",
-    "dotenv": "^16.0.3",
     "cors": "^2.8.5",
-    "socket.io": "^4.6.1",
-    "nodemailer": "^7.0.7",
-    "validator": "^13.9.0",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
     "express-rate-limit": "^6.7.0",
+    "firebase": "^12.9.0",
+    "firebase-admin": "^13.6.1",
     "helmet": "^7.0.0",
-    "morgan": "^1.10.0"
+    "jsonwebtoken": "^9.0.0",
+    "mongoose": "^7.0.3",
+    "morgan": "^1.10.0",
+    "nodemailer": "^7.0.7",
+    "socket.io": "^4.6.1",
+    "validator": "^13.9.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22",
-    "concurrently": "^8.0.1"
+    "concurrently": "^8.0.1",
+    "nodemon": "^2.0.22"
   }
 }

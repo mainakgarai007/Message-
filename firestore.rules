@@ -1,0 +1,137 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+    
+    // Helper function to check if user is accessing their own document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to check if user is member of a DM
+    function isDMMember(dmId) {
+      return isAuthenticated() && 
+             request.auth.uid in get(/databases/$(database)/documents/dms/$(dmId)).data.members;
+    }
+    
+    // Helper function to check if user is member of a group
+    function isGroupMember(groupId) {
+      return isAuthenticated() && 
+             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
+    }
+    
+    // Users collection - UID-based
+    match /users/{uid} {
+      // Anyone authenticated can read any user (for lookups)
+      allow read: if isAuthenticated();
+      
+      // Users can only create/update their own document
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+      
+      // Only the user themselves or admin can delete
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+    
+    // About Me collection - Admin only
+    match /aboutMe/{adminId} {
+      // Only admin can read their own aboutMe data
+      allow read: if isAdmin() && isOwner(adminId);
+      
+      // Only admin can create/update/delete their own aboutMe data
+      allow create, update, delete: if isAdmin() && isOwner(adminId);
+    }
+    
+    // Direct Messages - Members only
+    match /dms/{dmId} {
+      // Only members can read
+      allow read: if isDMMember(dmId);
+      
+      // Members can create/update (for botMode changes, etc.)
+      allow create, update: if isAuthenticated();
+      
+      // Only members or admin can delete
+      allow delete: if isDMMember(dmId) || isAdmin();
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Only DM members can read messages
+        allow read: if isDMMember(dmId);
+        
+        // Members can create messages
+        allow create: if isDMMember(dmId);
+        
+        // Only message sender or admin can update/delete
+        allow update, delete: if isAuthenticated() && 
+                                 (resource.data.senderId == request.auth.uid || isAdmin());
+      }
+    }
+    
+    // Groups - Members only
+    match /groups/{groupId} {
+      // Only members can read
+      allow read: if isGroupMember(groupId);
+      
+      // Creator or members can create/update
+      allow create: if isAuthenticated();
+      allow update: if isGroupMember(groupId);
+      
+      // Only group creator or admin can delete
+      allow delete: if isAuthenticated() && 
+                     (resource.data.creator == request.auth.uid || isAdmin());
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Only group members can read messages
+        allow read: if isGroupMember(groupId);
+        
+        // Members can create messages
+        allow create: if isGroupMember(groupId);
+        
+        // Only message sender or admin can update/delete
+        allow update, delete: if isAuthenticated() && 
+                                 (resource.data.senderId == request.auth.uid || isAdmin());
+      }
+    }
+    
+    // Requests collection
+    match /requests/{requestId} {
+      // Users can read requests where they are sender or receiver
+      allow read: if isAuthenticated() && 
+                     (resource.data.senderId == request.auth.uid || 
+                      resource.data.receiverId == request.auth.uid);
+      
+      // Users can create requests
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.senderId;
+      
+      // Receiver can update (to accept/reject)
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.receiverId;
+      
+      // Sender or receiver can delete
+      allow delete: if isAuthenticated() && 
+                      (resource.data.senderId == request.auth.uid || 
+                       resource.data.receiverId == request.auth.uid);
+    }
+    
+    // Drafts collection
+    match /drafts/{draftId} {
+      // Users can only access their own drafts
+      allow read, write: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Default deny rule for all other paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
