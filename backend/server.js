@@ -1,12 +1,13 @@
 require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const http = require('http');
 const socketio = require('socket.io');
-const jwt = require('jsonwebtoken');
+
+// Firebase
+const { auth } = require('./src/config/firebase');
 
 // Routes
 const authRoutes = require('./src/routes/authRoutes');
@@ -42,14 +43,8 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Connect to MongoDB
-mongoose
-  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/message-platform', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  })
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+// Firebase is initialized in config/firebase.js
+console.log('Firebase/Firestore connected');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -62,7 +57,7 @@ app.use('/api/about-me', aboutMeRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
+  res.json({ status: 'OK', message: 'Server is running with Firebase/Firestore' });
 });
 
 // Socket.io authentication middleware
@@ -73,16 +68,17 @@ io.use(async (socket, next) => {
       return next(new Error('Authentication error'));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
+    // Verify Firebase ID token
+    const decodedToken = await auth.verifyIdToken(token);
+    const user = await User.findById(decodedToken.uid);
     
     if (!user || !user.isVerified) {
       return next(new Error('Authentication error'));
     }
 
-    socket.userId = user._id.toString();
+    socket.userId = decodedToken.uid;
     socket.userEmail = user.email;
-    socket.isAdmin = user.isAdmin;
+    socket.isAdmin = user.role === 'admin';
     next();
   } catch (error) {
     next(new Error('Authentication error'));
@@ -151,43 +147,30 @@ io.on('connection', (socket) => {
       const { content, chatType, chatId, replyTo, mentionedUsers } = data;
 
       // Create message
-      const message = await Message.create({
-        sender: socket.userId,
+      const message = await Message.create(chatType, chatId, {
+        senderId: socket.userId,
         content,
-        chatType,
-        chatId,
         replyTo: replyTo || null,
         mentionedUsers: mentionedUsers || [],
         isAutomated: false
       });
 
-      // Update last message
-      if (chatType === 'dm') {
-        await DirectMessage.findByIdAndUpdate(chatId, {
-          lastMessage: message._id,
-          lastMessageAt: Date.now()
-        });
-      } else if (chatType === 'group') {
-        await Group.findByIdAndUpdate(chatId, {
-          lastMessage: message._id,
-          lastMessageAt: Date.now()
-        });
-      }
-
-      const populatedMessage = await Message.findById(message._id)
-        .populate('sender', 'name replyName')
-        .populate('replyTo')
-        .populate('mentionedUsers', 'name replyName');
-
       // Emit message to chat room
-      io.to(`${chatType}:${chatId}`).emit('new-message', populatedMessage);
+      io.to(`${chatType}:${chatId}`).emit('new-message', message);
 
       // Check if automation should reply
       let chat;
+      let adminUid;
       if (chatType === 'dm') {
         chat = await DirectMessage.findById(chatId);
+        // Get admin UID from participants
+        const adminUser = await User.findByRole('admin');
+        adminUid = adminUser ? adminUser.id : socket.userId;
       } else if (chatType === 'group') {
         chat = await Group.findById(chatId);
+        // Get admin UID from members
+        const adminUser = await User.findByRole('admin');
+        adminUid = adminUser ? adminUser.id : socket.userId;
       }
 
       if (chat) {
@@ -228,33 +211,14 @@ io.on('connection', (socket) => {
 
           // Send automated reply
           setTimeout(async () => {
-            const autoMessage = await Message.create({
-              sender: socket.userId, // Admin user
+            const autoMessage = await Message.create(chatType, chatId, {
+              senderId: adminUid,
               content: replyContent,
-              chatType,
-              chatId,
               isAutomated: true,
               label: chatType === 'dm' && chat.type !== 'personal' 
                 ? `Reply · ${chat.type.charAt(0).toUpperCase() + chat.type.slice(1)}`
                 : null
             });
-
-            // Update last message
-            if (chatType === 'dm') {
-              await DirectMessage.findByIdAndUpdate(chatId, {
-                lastMessage: autoMessage._id,
-                lastMessageAt: Date.now()
-              });
-            } else {
-              await Group.findByIdAndUpdate(chatId, {
-                lastMessage: autoMessage._id,
-                lastMessageAt: Date.now()
-              });
-            }
-
-            const populatedAutoMessage = await Message.findById(autoMessage._id)
-              .populate('sender', 'name replyName')
-              .populate('replyTo');
 
             // Stop typing
             io.to(`${chatType}:${chatId}`).emit('user-typing', {
@@ -265,7 +229,7 @@ io.on('connection', (socket) => {
             });
 
             // Emit automated message
-            io.to(`${chatType}:${chatId}`).emit('new-message', populatedAutoMessage);
+            io.to(`${chatType}:${chatId}`).emit('new-message', autoMessage);
           }, delay + 1000);
         }
       }
@@ -279,10 +243,10 @@ io.on('connection', (socket) => {
   // Handle message edit
   socket.on('edit-message', async (data) => {
     try {
-      const { messageId, content } = data;
+      const { messageId, content, chatType, chatId } = data;
 
-      const message = await Message.findById(messageId);
-      if (!message || message.sender.toString() !== socket.userId) {
+      const message = await Message.findById(chatType, chatId, messageId);
+      if (!message || message.senderId !== socket.userId) {
         return socket.emit('message-error', { message: 'Not authorized' });
       }
 
@@ -294,15 +258,13 @@ io.on('connection', (socket) => {
         return socket.emit('message-error', { message: 'Edit window expired' });
       }
 
-      message.content = content;
-      message.isEdited = true;
-      message.editedAt = Date.now();
-      await message.save();
+      const updatedMessage = await Message.update(chatType, chatId, messageId, {
+        content,
+        isEdited: true,
+        editedAt: Date.now()
+      });
 
-      const populatedMessage = await Message.findById(message._id)
-        .populate('sender', 'name replyName');
-
-      io.to(`${message.chatType}:${message.chatId}`).emit('message-edited', populatedMessage);
+      io.to(`${chatType}:${chatId}`).emit('message-edited', updatedMessage);
     } catch (error) {
       console.error('Error editing message:', error);
       socket.emit('message-error', { message: error.message });
@@ -312,25 +274,23 @@ io.on('connection', (socket) => {
   // Handle message delete
   socket.on('delete-message', async (data) => {
     try {
-      const { messageId, forEveryone } = data;
+      const { messageId, forEveryone, chatType, chatId } = data;
 
-      const message = await Message.findById(messageId);
-      if (!message || message.sender.toString() !== socket.userId) {
+      const message = await Message.findById(chatType, chatId, messageId);
+      if (!message || message.senderId !== socket.userId) {
         return socket.emit('message-error', { message: 'Not authorized' });
       }
 
       if (forEveryone) {
-        message.deletedForEveryone = true;
-        io.to(`${message.chatType}:${message.chatId}`).emit('message-deleted', {
+        await Message.deleteForEveryone(chatType, chatId, messageId);
+        io.to(`${chatType}:${chatId}`).emit('message-deleted', {
           messageId,
           forEveryone: true
         });
       } else {
-        message.deletedFor.push(socket.userId);
+        await Message.deleteForUser(chatType, chatId, messageId, socket.userId);
         socket.emit('message-deleted', { messageId, forEveryone: false });
       }
-
-      await message.save();
     } catch (error) {
       console.error('Error deleting message:', error);
       socket.emit('message-error', { message: error.message });
@@ -340,26 +300,18 @@ io.on('connection', (socket) => {
   // Handle reaction
   socket.on('add-reaction', async (data) => {
     try {
-      const { messageId, emoji } = data;
+      const { messageId, emoji, chatType, chatId } = data;
 
-      const message = await Message.findById(messageId);
+      const message = await Message.findById(chatType, chatId, messageId);
       if (!message) {
         return socket.emit('message-error', { message: 'Message not found' });
       }
 
-      message.reactions = message.reactions.filter(r => 
-        r.user.toString() !== socket.userId
-      );
+      const updatedMessage = await Message.addReaction(chatType, chatId, messageId, socket.userId, emoji);
 
-      message.reactions.push({ user: socket.userId, emoji });
-      await message.save();
-
-      const populatedMessage = await Message.findById(message._id)
-        .populate('reactions.user', 'name');
-
-      io.to(`${message.chatType}:${message.chatId}`).emit('reaction-added', {
+      io.to(`${chatType}:${chatId}`).emit('reaction-added', {
         messageId,
-        reactions: populatedMessage.reactions
+        reactions: updatedMessage.reactions
       });
     } catch (error) {
       console.error('Error adding reaction:', error);

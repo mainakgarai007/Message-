@@ -92,6 +92,25 @@ class User {
   }
 
   /**
+   * Find user by role
+   * @param {string} role - Role to search for (e.g., 'admin', 'user')
+   * @returns {object|null} - First user with the role, or null
+   */
+  static async findByRole(role) {
+    const snapshot = await db.collection('users')
+      .where('role', '==', role)
+      .limit(1)
+      .get();
+    
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() };
+  }
+
+  /**
    * Search users by email or name
    */
   static async search(query) {
